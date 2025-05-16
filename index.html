@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yes/No Button Tracker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+        }
+        .button-container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 30px 0;
+        }
+        button {
+            padding: 12px 30px;
+            font-size: 18px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        #yesButton {
+            background-color: #4CAF50;
+            color: white;
+        }
+        #noButton {
+            background-color: #f44336;
+            color: white;
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        #cooldown {
+            font-size: 16px;
+            color: #666;
+            height: 24px;
+        }
+        #records {
+            margin-top: 30px;
+            text-align: left;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .record-item {
+            padding: 6px 0;
+            border-bottom: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+    <h1>Yes/No Button Tracker</h1>
+    
+    <div class="button-container">
+        <button id="yesButton">Yes</button>
+        <button id="noButton">No</button>
+    </div>
+    
+    <div id="cooldown"></div>
+    
+    <div id="records">
+        <h2>Click History</h2>
+        <div id="recordsList"></div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const yesButton = document.getElementById('yesButton');
+        const noButton = document.getElementById('noButton');
+        const cooldownDisplay = document.getElementById('cooldown');
+        const recordsList = document.getElementById('recordsList');
+        
+        // Click records array - format: [{choice: 'Yes/No', timestamp: Date}]
+        let clickRecords = loadRecords();
+        
+        // Display existing records
+        displayRecords();
+        
+        // Add click event listeners to buttons
+        yesButton.addEventListener('click', () => handleButtonClick('Yes'));
+        noButton.addEventListener('click', () => handleButtonClick('No'));
+        
+        function handleButtonClick(choice) {
+            // Record the click with timestamp
+            const timestamp = new Date();
+            const record = {
+                choice: choice,
+                timestamp: timestamp
+            };
+            
+            // Add to records array
+            clickRecords.push(record);
+            
+            // Save to localStorage
+            saveRecords();
+            
+            // Display the updated records
+            displayRecords();
+            
+            // Disable buttons and show cooldown
+            disableButtons();
+            
+            // Start cooldown timer
+            startCooldown(7);
+        }
+        
+        function startCooldown(seconds) {
+            let timeLeft = seconds;
+            
+            // Display initial countdown
+            cooldownDisplay.textContent = `Cooldown: ${timeLeft} seconds`;
+            
+            // Set up interval to update countdown
+            const countdownInterval = setInterval(() => {
+                timeLeft--;
+                
+                if (timeLeft <= 0) {
+                    // Cooldown finished
+                    clearInterval(countdownInterval);
+                    enableButtons();
+                    cooldownDisplay.textContent = '';
+                } else {
+                    // Update countdown display
+                    cooldownDisplay.textContent = `Cooldown: ${timeLeft} seconds`;
+                }
+            }, 1000);
+        }
+        
+        function disableButtons() {
+            yesButton.disabled = true;
+            noButton.disabled = true;
+        }
+        
+        function enableButtons() {
+            yesButton.disabled = false;
+            noButton.disabled = false;
+        }
+        
+        function displayRecords() {
+            // Clear the current list
+            recordsList.innerHTML = '';
+            
+            if (clickRecords.length === 0) {
+                recordsList.innerHTML = '<p>No clicks recorded yet.</p>';
+                return;
+            }
+            
+            // Display records in reverse chronological order (newest first)
+            clickRecords.slice().reverse().forEach(record => {
+                const recordElement = document.createElement('div');
+                recordElement.className = 'record-item';
+                
+                // Format the date and time
+                const formattedDate = new Date(record.timestamp).toLocaleString();
+                
+                recordElement.textContent = `${record.choice} - ${formattedDate}`;
+                recordsList.appendChild(recordElement);
+            });
+        }
+        
+        function saveRecords() {
+            localStorage.setItem('buttonClickRecords', JSON.stringify(clickRecords));
+        }
+        
+        function loadRecords() {
+            const savedRecords = localStorage.getItem('buttonClickRecords');
+            return savedRecords ? JSON.parse(savedRecords) : [];
+        }
+    </script>
+</body>
+</html>
