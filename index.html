@@ -27,17 +27,13 @@
             padding: 24px 60px;
             font-size: 32px;
             cursor: pointer;
-            border: none;
+            border: 2px solid #555;
             border-radius: 10px;
             transition: background-color 0.3s;
         }
-        #yesButton {
-            background-color: #4CAF50;
-            color: white;
-        }
-        #noButton {
-            background-color: #f44336;
-            color: white;
+        #yesButton, #noButton {
+            background-color: #f0f0f0;
+            color: #333;
         }
         button:disabled {
             opacity: 0.6;
@@ -97,7 +93,10 @@
     
     <div id="cooldown"></div>
     
-    <!-- Hidden admin panel that can be activated with a special key sequence -->
+    <!-- Invisible admin trigger area -->
+    <div id="adminTrigger" style="position: fixed; bottom: 0; right: 0; width: 60px; height: 60px; z-index: 100;"></div>
+    
+    <!-- Hidden admin panel that can be activated with a special touch sequence -->
     <div id="adminPanel">
         <h2>Admin Panel</h2>
         <div class="admin-buttons">
@@ -122,15 +121,14 @@
         const exportButton = document.getElementById('exportButton');
         const clearButton = document.getElementById('clearButton');
         const hideAdminButton = document.getElementById('hideAdminButton');
+        const adminTrigger = document.getElementById('adminTrigger');
         
         // Click records array - format: [{choice: 'Yes/No', timestamp: Date}]
         let clickRecords = loadRecords();
         
-        // Secret key sequence to show admin panel (Ctrl+Alt+A)
-        let keys = {
-            control: false,
-            alt: false,
-        };
+        // Admin trigger tap counter and timer
+        let adminTapCount = 0;
+        let lastTapTime = 0;
         
         // Add click event listeners to buttons
         yesButton.addEventListener('click', () => handleButtonClick('Yes'));
@@ -141,19 +139,29 @@
         clearButton.addEventListener('click', clearData);
         hideAdminButton.addEventListener('click', hideAdminPanel);
         
-        // Key event listeners for admin panel access
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Control') keys.control = true;
-            if (e.key === 'Alt') keys.alt = true;
-            if (e.key === 'a' && keys.control && keys.alt) {
+        // Admin trigger gesture (5 quick taps in the corner)
+        adminTrigger.addEventListener('click', function(e) {
+            const currentTime = new Date().getTime();
+            
+            // Reset counter if it's been too long since last tap
+            if (currentTime - lastTapTime > 3000) {
+                adminTapCount = 0;
+            }
+            
+            adminTapCount++;
+            lastTapTime = currentTime;
+            
+            // Show admin panel after 5 quick taps
+            if (adminTapCount >= 5) {
+                adminTapCount = 0;
                 showAdminPanel();
             }
+            
+            // Prevent event from bubbling
+            e.preventDefault();
+            e.stopPropagation();
         });
         
-        document.addEventListener('keyup', function(e) {
-            if (e.key === 'Control') keys.control = false;
-            if (e.key === 'Alt') keys.alt = false;
-        });
         
         function handleButtonClick(choice) {
             // Record the click with timestamp
