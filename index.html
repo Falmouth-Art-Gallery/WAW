@@ -189,7 +189,7 @@
             let timeLeft = seconds;
             
             // Display initial countdown
-            cooldownDisplay.textContent = `Cooldown: ${timeLeft} seconds`;
+            cooldownDisplay.textContent = `Thank You... Please wait: ${timeLeft} seconds`;
             
             // Set up interval to update countdown
             const countdownInterval = setInterval(() => {
@@ -202,7 +202,7 @@
                     cooldownDisplay.textContent = '';
                 } else {
                     // Update countdown display
-                    cooldownDisplay.textContent = `Cooldown: ${timeLeft} seconds`;
+                    cooldownDisplay.textContent = `Thank You... Please wait: ${timeLeft} seconds`;
                 }
             }, 1000);
         }
