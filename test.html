@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Exhibition Feedback Kiosk</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 600px;
+                margin: 0 auto;
+                padding: 20px;
+                text-align: center;
+            }
+            h1 {
+                color: #333;
+                font-size: 36px;
+                margin-bottom: 40px;
+            }
+            .button-container {
+                display: flex;
+                justify-content: center;
+                gap: 40px;
+                margin: 40px 0;
+            }
+            button {
+                padding: 24px 60px;
+                font-size: 32px;
+                cursor: pointer;
+                border: 2px solid #555;
+                border-radius: 10px;
+                transition: background-color 0.3s;
+            }
+            .action-button {
+                background-color: #f0f0f0;
+                color: #333;
+            }
+            button:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+            #cooldown {
+                font-size: 24px;
+                color: #666;
+                height: 36px;
+                margin-top: 20px;
+            }
+            #adminPanel {
+                display: none;
+                margin-top: 40px;
+                text-align: left;
+            }
+            #dataDisplay {
+                max-height: 400px;
+                overflow-y: auto;
+                border: 1px solid #ddd;
+                padding: 15px;
+                border-radius: 5px;
+                margin-top: 20px;
+            }
+            .record-item {
+                padding: 8px 0;
+                border-bottom: 1px solid #eee;
+            }
+            .admin-buttons {
+                margin: 20px 0;
+            }
+            .admin-button {
+                padding: 8px 16px;
+                margin-right: 10px;
+                font-size: 14px;
+                background-color: #2196f3;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            #exportButton {
+                background-color: #ff9800;
+            }
+            #clearButton {
+                background-color: #9e9e9e;
+            }
+            .step {
+                display: none;
+            }
+            .step.active {
+                display: block;
+            }
+            #feedback {
+                width: 100%;
+                height: 150px;
+                margin: 20px 0;
+                padding: 12px;
+                font-size: 18px;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+                resize: none;
+            }
+            #submitFeedback {
+                padding: 16px 40px;
+                font-size: 24px;
+            }
+            #timer-bar {
+                width: 100%;
+                height: 12px;
+                background-color: #eee;
+                margin-top: 20px;
+                position: relative;
+            }
+            #timer-progress {
+                height: 100%;
+                background-color: #888;
+                width: 100%;
+                transition: width linear;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="step active" id="step1">
+            <h1>Do you want to see more exhibitions like 'Where are we?'</h1>
+            <div class="button-container">
+                <button id="yesButton" class="action-button">Yes</button>
+                <button id="noButton" class="action-button">No</button>
+            </div>
+        </div>
+
+        <div class="step" id="step2">
+            <h1>Can you tell us why?</h1>
+            <div class="button-container">
+                <button id="tellUsYesButton" class="action-button">Yes</button>
+                <button id="tellUsNoButton" class="action-button">No</button>
+            </div>
+        </div>
+
+        <div class="step" id="step3">
+            <h1>Please share your thoughts:</h1>
+            <textarea
+                id="feedback"
+                placeholder="Type your feedback here..."
+            ></textarea>
+            <button id="submitFeedback" class="action-button">Submit</button>
+        </div>
+
+        <div class="step" id="step4">
+            <h1>Thank you for your feedback!</h1>
+        </div>
+
+        <div id="cooldown"></div>
+        <div id="timer-bar"><div id="timer-progress"></div></div>
+
+        <!-- Invisible admin trigger area -->
+        <div
+            id="adminTrigger"
+            style="
+                position: fixed;
+                bottom: 0;
+                right: 0;
+                width: 60px;
+                height: 60px;
+                z-index: 100;
+            "
+        ></div>
+
+        <!-- Hidden admin panel that can be activated with a special touch sequence -->
+        <div id="adminPanel">
+            <h2>Admin Panel</h2>
+            <div class="admin-buttons">
+                <button id="exportButton" class="admin-button">
+                    Export Data (CSV)
+                </button>
+                <button id="clearButton" class="admin-button">
+                    Clear All Data
+                </button>
+                <button id="hideAdminButton" class="admin-button">
+                    Hide Admin Panel
+                </button>
+            </div>
+
+            <div id="dataDisplay">
+                <h3>Feedback Records</h3>
+                <div id="recordsList"></div>
+            </div>
+        </div>
+
+        <script>
+            // DOM Elements
+            const step1 = document.getElementById("step1");
+            const step2 = document.getElementById("step2");
+            const step3 = document.getElementById("step3");
+            const step4 = document.getElementById("step4");
+            const yesButton = document.getElementById("yesButton");
+            const noButton = document.getElementById("noButton");
+            const tellUsYesButton = document.getElementById("tellUsYesButton");
+            const tellUsNoButton = document.getElementById("tellUsNoButton");
+            const feedbackText = document.getElementById("feedback");
+            const submitFeedback = document.getElementById("submitFeedback");
+            const cooldownDisplay = document.getElementById("cooldown");
+            const timerProgress = document.getElementById("timer-progress");
+            const adminPanel = document.getElementById("adminPanel");
+            const recordsList = document.getElementById("recordsList");
+            const exportButton = document.getElementById("exportButton");
+            const clearButton = document.getElementById("clearButton");
+            const hideAdminButton = document.getElementById("hideAdminButton");
+            const adminTrigger = document.getElementById("adminTrigger");
+
+            // Feedback record object
+            let currentFeedback = {
+                initialResponse: null,
+                willingToExplain: null,
+                feedback: null,
+                timestamp: null,
+            };
+
+            // Click records array - format: [{initialResponse: 'Yes/No', willingToExplain: 'Yes/No', feedback: 'text', timestamp: Date}]
+            let feedbackRecords = loadRecords();
+
+            // Admin trigger tap counter and timer
+            let adminTapCount = 0;
+            let lastTapTime = 0;
+
+            // Inactivity timer
+            let inactivityTimer = null;
+            let inactivityDuration = 20000; // 20 seconds
+
+            // Add click event listeners to buttons
+            yesButton.addEventListener("click", () =>
+                handleInitialResponse("Yes"),
+            );
+            noButton.addEventListener("click", () =>
+                handleInitialResponse("No"),
+            );
+            tellUsYesButton.addEventListener("click", () =>
+                handleWillingToExplain("Yes"),
+            );
+            tellUsNoButton.addEventListener("click", () =>
+                handleWillingToExplain("No"),
+            );
+            submitFeedback.addEventListener("click", submitUserFeedback);
+
+            // Admin panel button listeners
+            exportButton.addEventListener("click", exportData);
+
+            document.body.addEventListener("click", resetInactivityTimer);
+            clearButton.addEventListener("click", clearData);
+            hideAdminButton.addEventListener("click", hideAdminPanel);
+
+            // Start inactivity timer immediately
+            resetInactivityTimer();
+
+            // Admin trigger gesture (5 quick taps in the corner)
+            adminTrigger.addEventListener("click", function (e) {
+                const currentTime = new Date().getTime();
+
+                // Reset counter if it's been too long since last tap
+                if (currentTime - lastTapTime > 3000) {
+                    adminTapCount = 0;
+                }
+
+                adminTapCount++;
+                lastTapTime = currentTime;
+
+                // Show admin panel after 5 quick taps
+                if (adminTapCount >= 5) {
+                    adminTapCount = 0;
+                    showAdminPanel();
+                }
+
+                // Prevent event from bubbling
+                e.preventDefault();
+                e.stopPropagation();
+            });
+
+            function handleInitialResponse(choice) {
+                // Record the response
+                currentFeedback.initialResponse = choice;
+                currentFeedback.timestamp = new Date();
+
+                // Move to the next step immediately
+                showStep(step2);
+            }
+
+            function handleWillingToExplain(choice) {
+                // Record the response
+                currentFeedback.willingToExplain = choice;
+
+                if (choice === "Yes") {
+                    // Move to feedback step immediately
+                    showStep(step3);
+                } else {
+                    // If not willing to explain, save the record and show thank you
+                    saveFeedbackRecord();
+                    showStep(step4);
+                    // After 3 seconds, return to start
+                    setTimeout(() => {
+                        resetToStart();
+                    }, 3000);
+                }
+            }
+
+            function submitUserFeedback() {
+                // Record the feedback text
+                currentFeedback.feedback = feedbackText.value.trim();
+
+                // Save the complete feedback record
+                saveFeedbackRecord();
+
+                // Show thank you screen
+                showStep(step4);
+
+                // After 3 seconds, return to start
+                setTimeout(() => {
+                    resetToStart();
+                }, 3000);
+            }
+
+            function saveFeedbackRecord() {
+                // Add to records array
+                feedbackRecords.push({ ...currentFeedback });
+
+                // Save to localStorage
+                saveRecords();
+            }
+
+            function resetToStart() {
+                // Reset the current feedback object
+                currentFeedback = {
+                    initialResponse: null,
+                    willingToExplain: null,
+                    feedback: null,
+                    timestamp: null,
+                };
+
+                // Clear feedback text field
+                feedbackText.value = "";
+
+                // Return to first step
+                showStep(step1);
+            }
+
+            function showStep(stepElement) {
+                // Hide all steps
+                document.querySelectorAll(".step").forEach((step) => {
+                    step.classList.remove("active");
+                });
+
+                // Show the requested step
+                stepElement.classList.add("active");
+
+                // Reset the inactivity timer
+                resetInactivityTimer();
+            }
+
+            // Remove unused function startCooldown
+            // function startCooldown(seconds, callback) {
+            //    let timeLeft = seconds;
+            //
+            //    // Display initial countdown
+            //    cooldownDisplay.textContent = `Please wait: ${timeLeft} seconds`;
+            //
+            //    // Set up interval to update countdown
+            //    const countdownInterval = setInterval(() => {
+            //        timeLeft--;
+            //
+            //        if (timeLeft <= 0) {
+            //            // Cooldown finished
+            //            clearInterval(countdownInterval);
+            //            cooldownDisplay.textContent = "";
+            //
+            //            // Execute callback if provided
+            //            if (callback) callback();
+            //        } else {
+            //            // Update countdown display
+            //            cooldownDisplay.textContent = `Please wait: ${timeLeft} seconds`;
+            //        }
+            //    }, 1000);
+            // }
+
+            function resetInactivityTimer() {
+                // Clear any existing timer
+                if (inactivityTimer) {
+                    clearTimeout(inactivityTimer);
+                    timerProgress.style.transition = "none";
+                    timerProgress.style.width = "100%";
+
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            timerProgress.style.transition = "width linear 20s";
+                            timerProgress.style.width = "0%";
+                        });
+                    });
+                }
+
+                // Set new timer
+                inactivityTimer = setTimeout(() => {
+                    // Reset to start after inactivity
+                    resetToStart();
+                }, inactivityDuration);
+
+                // Animate timer bar
+                timerProgress.style.transition = "width linear 20s";
+                timerProgress.style.width = "0%";
+            }
+
+            // Remove unused functions
+            // function disableButtons() {
+            //    yesButton.disabled = true;
+            //    noButton.disabled = true;
+            //    tellUsYesButton.disabled = true;
+            //    tellUsNoButton.disabled = true;
+            //    submitFeedback.disabled = true;
+            // }
+
+            // function enableButtons() {
+            //    yesButton.disabled = false;
+            //    noButton.disabled = false;
+            //    tellUsYesButton.disabled = false;
+            //    tellUsNoButton.disabled = false;
+            //    submitFeedback.disabled = false;
+            // }
+
+            function showAdminPanel() {
+                adminPanel.style.display = "block";
+                displayRecords();
+            }
+
+            function hideAdminPanel() {
+                adminPanel.style.display = "none";
+            }
+
+            function displayRecords() {
+                // Clear the current list
+                recordsList.innerHTML = "";
+
+                if (feedbackRecords.length === 0) {
+                    recordsList.innerHTML = "<p>No feedback recorded yet.</p>";
+                    return;
+                }
+
+                // Display records in reverse chronological order (newest first)
+                feedbackRecords
+                    .slice()
+                    .reverse()
+                    .forEach((record) => {
+                        const recordElement = document.createElement("div");
+                        recordElement.className = "record-item";
+
+                        // Format the date and time
+                        const formattedDate = new Date(
+                            record.timestamp,
+                        ).toLocaleString();
+
+                        let recordContent = `${record.initialResponse} to more exhibitions - ${formattedDate}<br>`;
+                        if (record.willingToExplain) {
+                            recordContent += `Willing to explain: ${record.willingToExplain}<br>`;
+                        }
+                        if (record.feedback) {
+                            recordContent += `Feedback: "${record.feedback}"`;
+                        }
+
+                        recordElement.innerHTML = recordContent;
+                        recordsList.appendChild(recordElement);
+                    });
+            }
+
+            function exportData() {
+                if (feedbackRecords.length === 0) {
+                    alert("No data to export.");
+                    return;
+                }
+
+                // Create CSV content
+                let csvContent =
+                    "Initial Response,Willing to Explain,Feedback,Timestamp\n";
+
+                feedbackRecords.forEach((record) => {
+                    // Format CSV fields properly, escaping quotes in feedback
+                    const initialResponse = record.initialResponse || "";
+                    const willingToExplain = record.willingToExplain || "";
+                    const feedback = record.feedback
+                        ? `"${record.feedback.replace(/"/g, '""')}"`
+                        : "";
+                    const timestamp = record.timestamp
+                        ? new Date(record.timestamp).toLocaleString()
+                        : "";
+
+                    csvContent += `${initialResponse},${willingToExplain},${feedback},${timestamp}\n`;
+                });
+
+                // Create a blob and download link
+                const blob = new Blob([csvContent], {
+                    type: "text/csv;charset=utf-8;",
+                });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+
+                link.setAttribute("href", url);
+                link.setAttribute("download", "exhibition-feedback.csv");
+                link.style.visibility = "hidden";
+
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            function clearData() {
+                if (
+                    confirm(
+                        "Are you sure you want to clear all feedback data? This action cannot be undone.",
+                    )
+                ) {
+                    feedbackRecords = [];
+                    saveRecords();
+                    displayRecords();
+                }
+            }
+
+            function saveRecords() {
+                localStorage.setItem(
+                    "exhibitionFeedbackRecords",
+                    JSON.stringify(feedbackRecords),
+                );
+            }
+
+            function loadRecords() {
+                const savedRecords = localStorage.getItem(
+                    "exhibitionFeedbackRecords",
+                );
+                return savedRecords ? JSON.parse(savedRecords) : [];
+            }
+        </script>
+    </body>
+</html>
