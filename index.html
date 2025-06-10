@@ -254,6 +254,17 @@
 
             // Start inactivity timer immediately
             resetInactivityTimer();
+let typingTimer;
+const typingTimeout = 30000; // 30 seconds
+
+feedbackText.addEventListener("input", () => {
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(() => {
+        console.log("Typing inactivity timeout reached — resetting.");
+        resetToStart();
+    }, typingTimeout);
+});
+
 
             // Admin trigger gesture (5 quick taps in the corner)
             adminTrigger.addEventListener("click", function (e) {
@@ -345,11 +356,26 @@
                 showStep(step1);
             }
 
-            function showStep(stepElement) {
-                // Hide all steps
-                document.querySelectorAll(".step").forEach((step) => {
-                    step.classList.remove("active");
-                });
+            
+function showStep(stepElement) {
+    // Hide all steps
+    document.querySelectorAll(".step").forEach((step) => {
+        step.classList.remove("active");
+    });
+
+    // Show the requested step
+    stepElement.classList.add("active");
+
+    // Pause the timer on feedback step, otherwise reset
+    if (stepElement.id === "step3") {
+        clearTimeout(inactivityTimer);
+        timerProgress.style.transition = "none";
+        timerProgress.style.transform = "scaleX(1)";
+    } else {
+        resetInactivityTimer();
+    }
+}
+);
 
                 // Show the requested step
                 stepElement.classList.add("active");
