@@ -212,7 +212,18 @@
             const clearButton = document.getElementById("clearButton");
             const hideAdminButton = document.getElementById("hideAdminButton");
             const adminTrigger = document.getElementById("adminTrigger");
+            let typingTimer;
+            const typingTimeout = 30000; // 30 seconds
 
+            feedbackText.addEventListener("input", () => {
+                clearTimeout(typingTimer);
+                typingTimer = setTimeout(() => {
+                    console.log(
+                        "Typing inactivity timeout reached — resetting.",
+                    );
+                    resetToStart();
+                }, typingTimeout);
+            });
             // Feedback record object
             let currentFeedback = {
                 initialResponse: null,
@@ -254,17 +265,6 @@
 
             // Start inactivity timer immediately
             resetInactivityTimer();
-let typingTimer;
-const typingTimeout = 30000; // 30 seconds
-
-feedbackText.addEventListener("input", () => {
-    clearTimeout(typingTimer);
-    typingTimer = setTimeout(() => {
-        console.log("Typing inactivity timeout reached — resetting.");
-        resetToStart();
-    }, typingTimeout);
-});
-
 
             // Admin trigger gesture (5 quick taps in the corner)
             adminTrigger.addEventListener("click", function (e) {
@@ -341,6 +341,18 @@ feedbackText.addEventListener("input", () => {
             }
 
             function resetToStart() {
+                // If the user is on the feedback step and has typed something, auto-submit
+                if (
+                    step3.classList.contains("active") &&
+                    feedbackText.value.trim() !== ""
+                ) {
+                    console.log(
+                        "Inactivity timeout reached — auto-submitting feedback.",
+                    );
+                    currentFeedback.feedback = feedbackText.value.trim();
+                    saveFeedbackRecord();
+                }
+
                 // Reset the current feedback object
                 currentFeedback = {
                     initialResponse: null,
@@ -356,32 +368,35 @@ feedbackText.addEventListener("input", () => {
                 showStep(step1);
             }
 
-            
-function showStep(stepElement) {
-    // Hide all steps
-    document.querySelectorAll(".step").forEach((step) => {
-        step.classList.remove("active");
-    });
-
-    // Show the requested step
-    stepElement.classList.add("active");
-
-    // Pause the timer on feedback step, otherwise reset
-    if (stepElement.id === "step3") {
-        clearTimeout(inactivityTimer);
-        timerProgress.style.transition = "none";
-        timerProgress.style.transform = "scaleX(1)";
-    } else {
-        resetInactivityTimer();
-    }
-}
-);
+            function showStep(stepElement) {
+                // Hide all steps
+                document.querySelectorAll(".step").forEach((step) => {
+                    step.classList.remove("active");
+                });
 
                 // Show the requested step
                 stepElement.classList.add("active");
 
                 // Reset the inactivity timer
                 resetInactivityTimer();
+            }
+
+            function showStep(stepElement) {
+                // Hide all steps
+                document.querySelectorAll(".step").forEach((step) => {
+                    step.classList.remove("active");
+                });
+
+                // Show the requested step
+                stepElement.classList.add("active");
+
+                // Disable inactivity timer on feedback step (step3)
+                if (stepElement.id === "step3") {
+                    clearTimeout(inactivityTimer);
+                    timerProgress.classList.remove("timer-animate");
+                } else {
+                    resetInactivityTimer();
+                }
             }
 
             // Remove unused function startCooldown
